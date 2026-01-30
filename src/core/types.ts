@@ -59,3 +59,37 @@ export interface StoreConfig {
 }
 
 export const DEFAULT_STORE_DIR = "/tix/store";
+
+// =============================================================================
+// Validation
+// =============================================================================
+
+/** Valid characters for derivation names (like Nix) */
+const VALID_NAME_REGEX = /^[a-zA-Z0-9+._?=-][a-zA-Z0-9+._?=-]*$/;
+
+export function validateDerivationName(name: string): void {
+  if (!name) {
+    throw new Error("Derivation name cannot be empty");
+  }
+  if (name.length > 211) {
+    throw new Error(`Derivation name too long (${name.length} > 211): ${name}`);
+  }
+  if (name.startsWith(".")) {
+    throw new Error(`Derivation name cannot start with '.': ${name}`);
+  }
+  if (!VALID_NAME_REGEX.test(name)) {
+    throw new Error(`Invalid derivation name '${name}'. Names can only contain letters, digits, and +._?=-`);
+  }
+}
+
+export function validateDerivation(drv: Derivation): void {
+  validateDerivationName(drv.name);
+  
+  if (!drv.builder) {
+    throw new Error(`Derivation '${drv.name}' must have a builder`);
+  }
+  
+  if (drv.outputHash && !drv.outputHashAlgo) {
+    throw new Error(`Derivation '${drv.name}' has outputHash but no outputHashAlgo`);
+  }
+}

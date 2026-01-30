@@ -23,11 +23,18 @@ const NIX32_ALPHABET = "0123456789abcdfghijklmnpqrsvwxyz";
 /**
  * Encode bytes to Nix32 format.
  * 
- * IMPORTANT: Nix32 processes bytes from END to START (reverse order).
- * This is different from standard base32.
+ * Nix's base32 is unusual:
+ * 1. Uses alphabet without e, o, u, t (to avoid confusion)
+ * 2. Bytes are reversed before encoding
+ * 3. Bits are extracted LSB-first
  */
 export function nix32Encode(bytes: Buffer): Nix32Hash {
-  const len = Math.ceil((bytes.length * 8) / 5);
+  if (bytes.length === 0) return "" as Nix32Hash;
+  
+  // Reverse the bytes (Nix does this!)
+  const reversed = Buffer.from(bytes).reverse();
+  
+  const len = Math.ceil((reversed.length * 8) / 5);
   const chars: string[] = new Array(len);
   
   for (let n = 0; n < len; n++) {
@@ -36,12 +43,12 @@ export function nix32Encode(bytes: Buffer): Nix32Hash {
     const j = b % 8;
     
     // Extract 5 bits, handling byte boundary
-    let c = (bytes[i] >> j) & 0x1f;
-    if (i + 1 < bytes.length && j > 3) {
-      c |= (bytes[i + 1] << (8 - j)) & 0x1f;
+    let c = (reversed[i] >> j) & 0x1f;
+    if (i + 1 < reversed.length && j > 3) {
+      c |= (reversed[i + 1] << (8 - j)) & 0x1f;
     }
     
-    // Nix32 is reversed compared to normal base32
+    // Output in reverse order
     chars[len - 1 - n] = NIX32_ALPHABET[c];
   }
   

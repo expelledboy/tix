@@ -91,10 +91,13 @@ async function buildInDocker(
   config: BuildConfig
 ): Promise<void> {
   const outPath = drv.outputs.out.path;
-  const outDir = join(tmpdir(), `tix-build-${basename(outPath)}`);
+  const outDir = mkdtempSync(join(tmpdir(), `tix-build-${basename(outPath)}-`));
   
   // Create temp output directory
   mkdirSync(outDir, { recursive: true });
+  
+  // Rewrite env to use /out inside container
+  const containerEnv = { ...drv.env, out: "/out" };
   
   // Build Docker command
   const dockerArgs = [
@@ -104,10 +107,10 @@ async function buildInDocker(
     ...(config.network ? [] : ["--network", "none"]),
     // Mount store read-only
     "-v", `${store.dir}:${store.dir}:ro`,
-    // Mount output directory
-    "-v", `${outDir}:${outPath}:rw`,
-    // Environment variables
-    ...Object.entries(drv.env).flatMap(([k, v]) => ["-e", `${k}=${v}`]),
+    // Mount output directory at /out (where $out points inside container)
+    "-v", `${outDir}:/out:rw`,
+    // Environment variables (with rewritten $out)
+    ...Object.entries(containerEnv).flatMap(([k, v]) => ["-e", `${k}=${v}`]),
     // Working directory
     "-w", "/build",
     // Image
@@ -123,7 +126,7 @@ async function buildInDocker(
   
   await runCommand("docker", dockerArgs, { verbose: config.verbose });
   
-  // Register the output
+  // Register the output (move from temp to final store path)
   store.registerOutput(outDir, outPath);
 }
 

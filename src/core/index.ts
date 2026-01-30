@@ -17,7 +17,7 @@ export type {
   StoreConfig,
 } from "./types";
 
-export { currentSystem, DEFAULT_STORE_DIR } from "./types";
+export { currentSystem, DEFAULT_STORE_DIR, validateDerivation, validateDerivationName } from "./types";
 
 // Hashing
 export {

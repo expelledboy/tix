@@ -1,7 +1,7 @@
 {
   "name": "tix",
   "version": "0.1.0",
-  "description": "A tiny, TypeScript reimagining of Nix",
+  "description": "A tiny, TypeScript reimagining of Nix — content-addressed builds without the DSL",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,14 +12,20 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "prettier --check src/",
-    "format": "prettier --write src/"
+    "format": "prettier --write src/",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -34,15 +40,30 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "nix",
     "build",
     "reproducible",
     "package-manager",
-    "content-addressed"
+    "content-addressed",
+    "derivation",
+    "sandbox",
+    "docker",
+    "immutable",
+    "declarative"
   ],
   "author": "Anthony Jackson",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/expelledboy/tix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/expelledboy/tix/issues"
+  },
+  "homepage": "https://github.com/expelledboy/tix#readme"
 }

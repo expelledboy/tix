@@ -34,14 +34,20 @@ export function getStore(): Store {
  * const hello = sh`
  *   echo "Hello, World!" > $out/hello.txt
  * `;
+ * 
+ * // With dependencies:
+ * const combined = sh`
+ *   cat ${hello}/hello.txt
+ * `;
  * ```
  */
 export function sh(
   strings: TemplateStringsArray,
   ...values: (string | Derivation | StorePath)[]
 ): Derivation {
-  // Interpolate the template
+  const inputs: Derivation[] = [];
   let script = "";
+  
   for (let i = 0; i < strings.length; i++) {
     script += strings[i];
     if (i < values.length) {
@@ -49,9 +55,10 @@ export function sh(
       if (typeof val === "string") {
         script += val;
       } else if ("name" in val) {
-        // It's a Derivation - we'll get its output path after instantiation
-        // For now, use a placeholder
-        script += `\${${val.name}}`;
+        // It's a Derivation — track it and reference via env var
+        const inputIndex = inputs.length;
+        inputs.push(val);
+        script += `$input${inputIndex}`;
       }
     }
   }
@@ -61,13 +68,14 @@ export function sh(
   const name = firstLine
     .replace(/[^a-zA-Z0-9-_]/g, "-")
     .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 32) || "script";
   
   return {
     name,
     builder: "/bin/sh",
     args: ["-c", script],
-    inputs: values.filter((v): v is Derivation => typeof v === "object" && "name" in v),
+    inputs,
   };
 }
 

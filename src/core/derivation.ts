@@ -9,7 +9,7 @@
 import type { 
   Derivation, DrvFile, StorePath, DrvPath, Hash, System 
 } from "./types";
-import { currentSystem, DEFAULT_STORE_DIR } from "./types";
+import { currentSystem, DEFAULT_STORE_DIR, validateDerivation } from "./types";
 import { sha256Hex, stableStringify, computeOutputPath, computeFixedOutputPath } from "./hash";
 import { Store } from "./store";
 
@@ -92,6 +92,9 @@ export function instantiate(
   drv: Derivation,
   cache: Map<Derivation, { drvPath: DrvPath; outPath: StorePath }> = new Map()
 ): { drvPath: DrvPath; outPath: StorePath } {
+  // Validate the derivation
+  validateDerivation(drv);
+  
   // Check cache
   const cached = cache.get(drv);
   if (cached) return cached;
@@ -134,13 +137,20 @@ export function instantiate(
     inputSrcs = [srcPath];
   }
   
-  // Add builder to store if it's a local script
+  // Handle builder path
+  // System binaries like /bin/sh are used directly
+  // Everything else is treated as a path to add to the store
   let builderPath: StorePath;
-  if (typeof drv.builder === "string" && !drv.builder.startsWith(storeDir)) {
-    // It's a script content, add to store
-    builderPath = store.addSource(drv.builder, `${drv.name}-builder.sh`);
-  } else {
+  if (drv.builder.startsWith('/')) {
+    // System binary (e.g., /bin/sh, /usr/bin/env)
     builderPath = drv.builder as StorePath;
+  } else if (drv.builder.startsWith(storeDir)) {
+    // Already a store path
+    builderPath = drv.builder as StorePath;
+  } else {
+    // Local file path — add to store
+    builderPath = store.addSource(drv.builder, `${drv.name}-builder`);
+    inputSrcs.push(builderPath);
   }
   
   // Build the DrvFile
@@ -194,19 +204,25 @@ export function topoSort(
 ): Derivation[] {
   const result: Derivation[] = [];
   const visited = new Set<Derivation>();
-  const visiting = new Set<Derivation>();
+  const path: Derivation[] = []; // Track current path for error messages
   
   function visit(drv: Derivation): void {
     if (visited.has(drv)) return;
-    if (visiting.has(drv)) {
-      throw new Error(`Circular dependency detected: ${drv.name}`);
+    
+    // Check for cycle
+    const cycleStart = path.indexOf(drv);
+    if (cycleStart !== -1) {
+      const cycle = [...path.slice(cycleStart), drv];
+      const cycleStr = cycle.map(d => d.name).join(" -> ");
+      throw new Error(`Circular dependency detected: ${cycleStr}`);
     }
     
-    visiting.add(drv);
+    path.push(drv);
     for (const input of drv.inputs ?? []) {
       visit(input);
     }
-    visiting.delete(drv);
+    path.pop();
+    
     visited.add(drv);
     result.push(drv);
   }
